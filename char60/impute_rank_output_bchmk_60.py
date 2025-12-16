@@ -39,8 +39,13 @@ q_only_list = ['abr', 'sue', 'cinvest', 'nincr', 'pscore',
                # 'turn', 'dolvol'
                ]
 # monthly frequency only list
-m_var_list = ['baspread', 'beta', 'ill', 'maxret', 'mom12m', 'mom1m', 'mom36m', 'mom60m', 'mom6m', 're', 'rvar_capm',
-              'rvar_ff3', 'rvar_mean', 'seas1a', 'std_dolvol', 'std_turn', 'zerotrade', 'me', 'dy',
+m_var_list = [#'baspread', 
+              'beta', 'ill', 'maxret', 'mom12m', 'mom1m', 'mom36m', 'mom60m', 'mom6m', 
+              #'re', 
+              'rvar_capm',
+              'rvar_ff3', 'rvar_mean', 'seas1a', 'std_dolvol', 
+              #'std_turn', 'zerotrade', 
+              'me', 'dy',
               'turn', 'dolvol' # need to rerun the accounting to put them in to char_a
               ]
 
@@ -109,7 +114,7 @@ df_impute['ffi49'] = df_impute['ffi49'].astype(int)
 df_impute = fillna_ind(df_impute, method='median', ffi=49)
 
 df_impute = fillna_all(df_impute, method='median')
-df_impute['re'] = df_impute['re'].fillna(0)  # re use IBES database, there are lots of missing data
+#df_impute['re'] = df_impute['re'].fillna(0)  # re use IBES database, there are lots of missing data
 
 df_impute['year'] = df_impute['date'].dt.year
 df_impute = df_impute[df_impute['year'] >= 1972]
@@ -118,7 +123,7 @@ df_impute = df_impute.drop(['year'], axis=1)
 with open('chars60_raw_imputed.feather', 'wb') as f:
     feather.write_feather(df_impute, f)
 
-# standardize raw data
+# standardize raw data to [-1,1]
 df_rank = df.copy()
 df_rank['lag_me'] = df_rank['me']
 df_rank['bm'] = np.where(df_rank['bm']<0,np.nan,df_rank['bm']) # if bm<0 then bm=nan and rank_bm=0
@@ -131,7 +136,7 @@ df_rank['log_me'] = np.log(df_rank['lag_me'])
 with open('chars60_rank_no_impute.feather', 'wb') as f:
     feather.write_feather(df_rank, f)
 
-# standardize imputed data
+# standardize imputed data to [-1,1]
 df_rank = df_impute.copy()
 df_rank['lag_me'] = df_rank['me']
 df_rank = standardize(df_rank)
@@ -142,6 +147,33 @@ df_rank['log_me'] = np.log(df_rank['lag_me'])
 
 with open('chars60_rank_imputed.feather', 'wb') as f:
     feather.write_feather(df_rank, f)
+
+
+# standardize raw data to mean 0 and std 1
+df_rank = df.copy()
+df_rank['lag_me'] = df_rank['me']
+df_rank['bm'] = np.where(df_rank['bm']<0,np.nan,df_rank['bm']) # if bm<0 then bm=nan and rank_bm=0
+df_rank = standardize(df_rank)
+df_rank['year'] = df_rank['date'].dt.year
+df_rank = df_rank[df_rank['year'] >= 1972]
+df_rank = df_rank.drop(['year'], axis=1)
+df_rank['log_me'] = np.log(df_rank['lag_me'])
+
+with open('chars60_Zstd_no_impute.feather', 'wb') as f:
+    feather.write_feather(df_rank, f)
+
+# standardize imputed data to mean 0 and std 1
+df_rank = df_impute.copy()
+df_rank['lag_me'] = df_rank['me']
+df_rank = standardize(df_rank)
+df_rank['year'] = df_rank['date'].dt.year
+df_rank = df_rank[df_rank['year'] >= 1972]
+df_rank = df_rank.drop(['year'], axis=1)
+df_rank['log_me'] = np.log(df_rank['lag_me'])
+
+with open('chars60_Zstd_imputed.feather', 'wb') as f:
+    feather.write_feather(df_rank, f)
+
 
 
 # ####################

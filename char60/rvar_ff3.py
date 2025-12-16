@@ -21,7 +21,11 @@ import multiprocessing as mp
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+'''
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
+
+
 
 # CRSP Block
 crsp = conn.raw_sql("""
@@ -29,8 +33,29 @@ crsp = conn.raw_sql("""
                       from crsp.dsf as a
                       left join ff.factors_daily as b
                       on a.date=b.date
-                      where a.date > '01/01/1959'
+                      where a.date > '01/01/1981'
                       """)
+
+print("CRSP data loaded. Rows:", len(crsp))
+# Save locally in a fast, compressed format
+crsp.to_feather("crsp_ff3_raw.feather")      
+
+# add delisting return
+dlret = conn.raw_sql("""
+                     select permno, dlret, dlstdt 
+                     from crsp.dsedelist
+                     """)
+print("CRSP.dlret data loaded. Rows:", len(dlret))
+# Save locally in a fast, compressed format
+dlret.to_feather("crsp_dlret_ff3_raw.feather")     
+
+
+conn.close()
+'''
+
+crsp = pd.read_feather("crsp_beta_raw.feather")
+dlret = pd.read_feather("crsp_dlret_beta_raw.feather")
+
 
 # sort variables by permno and date
 crsp = crsp.sort_values(by=['permno', 'date'])
@@ -41,11 +66,6 @@ crsp['permno'] = crsp['permno'].astype(int)
 # Line up date to be end of month
 crsp['date'] = pd.to_datetime(crsp['date'])
 
-# add delisting return
-dlret = conn.raw_sql("""
-                     select permno, dlret, dlstdt 
-                     from crsp.dsedelist
-                     """)
 
 dlret.permno = dlret.permno.astype(int)
 dlret['dlstdt'] = pd.to_datetime(dlret['dlstdt'])
@@ -106,9 +126,9 @@ def get_beta(df):
 
     """
     temp = crsp.loc[df.index]  # extract the rolling sub dataframe from original dataframe
-    X = np.mat(temp[['mktrf', 'smb', 'hml']])
-    Y = np.mat(temp[['exret']])
-    ones = np.mat(np.ones(rolling_window)).T
+    X = np.asmatrix(temp[['mktrf', 'smb', 'hml']])
+    Y = np.asmatrix(temp[['exret']])
+    ones = np.asmatrix(np.ones(rolling_window)).T
     M = np.identity(rolling_window) - ones.dot((ones.T.dot(ones)).I).dot(ones.T)
     beta = (X.T.dot(M).dot(X)).I.dot((X.T.dot(M).dot(Y)))
     crsp['beta_mktrf'].loc[df.index[-1:]] = beta[0]
@@ -149,9 +169,23 @@ def get_res_var(df, firm_list):
                 X[['mktrf', 'smb', 'hml']] = temp[['mktrf', 'smb', 'hml']]
                 X['intercept'] = 1
                 X = X[['intercept', 'mktrf', 'smb', 'hml']]
-                X = np.mat(X)
-                Y = np.mat(temp[['exret']])
-                res = (np.identity(rolling_window) - X.dot(X.T.dot(X).I).dot(X.T)).dot(Y)
+                #X = np.asmatrix(X).astype(float)
+                #Y = np.asmatrix(temp[['exret']]).astype(float)
+                #res = (np.identity(rolling_window) - X.dot(X.T.dot(X).I).dot(X.T)).dot(Y)
+                
+                # Make sure X and Y are numeric float arrays
+                X = np.asarray(X, dtype=float)
+                Y = np.asarray(temp[['exret']], dtype=float)
+
+                # X'X and its inverse
+                XtX = X.T @ X
+                XtX_inv = np.linalg.inv(XtX)
+
+                # Residual-maker matrix: M = I - X (X'X)^(-1) X'
+                M = np.eye(rolling_window) - X @ XtX_inv @ X.T
+
+                # Residuals
+                res = M @ Y
                 res_var = res.var(ddof=1)
                 df.loc[index, 'rvar'] = res_var
     return df
@@ -209,11 +243,11 @@ def main(start, end, step):
 if __name__ == '__main__':
     crsp = main(0, 1, 0.05)
 
-# process dataframe
-crsp = crsp.dropna(subset=['rvar'])  # drop NA due to rolling
-crsp = crsp.rename(columns={'rvar': 'rvar_ff3'})
-crsp = crsp.reset_index(drop=True)
-crsp = crsp[['permno', 'date', 'rvar_ff3']]
+    # process dataframe
+    crsp = crsp.dropna(subset=['rvar'])  # drop NA due to rolling
+    crsp = crsp.rename(columns={'rvar': 'rvar_ff3'})
+    crsp = crsp.reset_index(drop=True)
+    crsp = crsp[['permno', 'date', 'rvar_ff3']]
 
-with open('rvar_ff3.feather', 'wb') as f:
-    feather.write_feather(crsp, f)
+    with open('rvar_ff3.feather', 'wb') as f:
+        feather.write_feather(crsp, f)

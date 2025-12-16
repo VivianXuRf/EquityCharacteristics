@@ -33,7 +33,8 @@ import pyarrow.feather as feather
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected to WRDS.")
 
 #########################
 # Step 1: Link by CUSIP #

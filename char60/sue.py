@@ -1,5 +1,6 @@
 # Calculate HSZ Replicating Anomalies
 # SUE: Standardized Unexpected Earnings (Earnings surprise)
+# the same raw data as ABR (abr.py): ccm
 
 import pandas as pd
 import numpy as np
@@ -14,7 +15,8 @@ import pyarrow.feather as feather
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
 
 ###################
 # Compustat Block #
@@ -26,20 +28,25 @@ comp = conn.raw_sql("""
                         and datafmt = 'STD'
                         and popsrc = 'D'
                         and consol = 'C'
-                        and datadate >= '01/01/1959'
+                        and datadate >= '01/01/1981'
                         """)
 
 comp['datadate'] = pd.to_datetime(comp['datadate'])
 
+
 ###################
 #    CCM Block    #
 ###################
+
 ccm = conn.raw_sql("""
                   select gvkey, lpermno as permno, linktype, linkprim, 
                   linkdt, linkenddt
                   from crsp.ccmxpf_linktable
                   where linktype in ('LU', 'LC')
                   """)
+
+
+#ccm = pd.read_feather("ccm_abr_raw.feather")
 
 ccm['linkdt'] = pd.to_datetime(ccm['linkdt'])
 ccm['linkenddt'] = pd.to_datetime(ccm['linkenddt'])
@@ -86,11 +93,11 @@ ccm2['sue'] = (ccm2['eps'] - ccm2['e4'])/ccm2['sue_std']
 crsp_msf = conn.raw_sql("""
                         select distinct date
                         from crsp.msf
-                        where date >= '01/01/1959'
+                        where date >= '01/01/1981'
                         """)
 
 ccm2['datadate'] = pd.to_datetime(ccm2['datadate'])
-ccm2['plus12m'] = ccm2['datadate'] + np.timedelta64(12, 'M')
+ccm2['plus12m'] = ccm2['datadate'] + pd.DateOffset(months=12)
 ccm2['plus12m'] = ccm2['plus12m'] + MonthEnd(0)
 
 df = sqldf("""select a.*, b.date

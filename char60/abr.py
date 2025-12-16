@@ -13,7 +13,8 @@ import sqlite3
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
 
 ###################
 # Compustat Block #
@@ -25,7 +26,7 @@ comp = conn.raw_sql("""
                     and datafmt = 'STD'
                     and popsrc = 'D'
                     and consol = 'C'
-                    and datadate >= '01/01/1959'
+                    and datadate >= '01/01/1981'
                     """)
 
 comp['datadate'] = pd.to_datetime(comp['datadate'])
@@ -40,6 +41,9 @@ ccm = conn.raw_sql("""
                   from crsp.ccmxpf_linktable
                   where linktype in ('LU', 'LC')
                   """)
+ccm.to_feather("ccm_abr_raw.feather")     
+
+
 
 ccm['linkdt'] = pd.to_datetime(ccm['linkdt'])
 ccm['linkenddt'] = pd.to_datetime(ccm['linkenddt'])
@@ -63,7 +67,7 @@ ccm2 = ccm2[['gvkey', 'datadate', 'rdq', 'fyearq', 'fqtr', 'permno']]
 crsp_dsi = conn.raw_sql("""
                         select distinct date
                         from crsp.dsi
-                        where date >= '01/01/1959'
+                        where date >= '01/01/1981'
                         """)
 
 crsp_dsi['date'] = pd.to_datetime(crsp_dsi['date'])
@@ -98,7 +102,7 @@ crsp_d = conn.raw_sql("""
                       on a.permno=b.permno
                       and b.namedt<=a.date
                       and a.date<=b.nameendt
-                      where a.date >= '01/01/1959'
+                      where a.date >= '01/01/1981'
                       and b.exchcd between 1 and 3
                       and b.shrcd in (10,11)
                       """)
@@ -111,13 +115,16 @@ print('='*10, 'crsp abnormal return is ready', '='*10)
 # convert the date format
 crsp_d['date'] = pd.to_datetime(crsp_d['date'])
 
+'''
 # add delisting return
 dlret = conn.raw_sql("""
                      select permno, dlret, dlstdt 
                      from crsp.dsedelist
-                     where dlstdt >= '01/01/1959'
+                     where dlstdt >= '01/01/1981'
                      """)
+'''
 
+dlret = pd.read_feather("crsp_dlret_beta_raw.feather")
 dlret.permno = dlret.permno.astype(int)
 dlret['dlstdt'] = pd.to_datetime(dlret['dlstdt'])
 
@@ -131,7 +138,7 @@ crsp_d = crsp_d.sort_values(by=['date', 'permno', 'meq'])
 crspsp500d = conn.raw_sql("""
                           select date, sprtrn 
                           from crsp.dsi
-                          where date >= '01/01/1959'
+                          where date >= '01/01/1981'
                           """)
 
 crspsp500d['date'] = pd.to_datetime(crspsp500d['date'])
@@ -204,11 +211,12 @@ print('='*10, 'start populate', '='*10)
 crsp_msf = conn.raw_sql("""
                         select distinct date
                         from crsp.msf
-                        where date >= '01/01/1959'
+                        where date >= '01/01/1981'
                         """)
 
 df['datadate'] = pd.to_datetime(df['datadate'])
-df['plus12m'] = df['datadate'] + np.timedelta64(12, 'M')
+# add 12 calendar months
+df['plus12m'] = df['datadate'] + pd.DateOffset(months=12)
 df['plus12m'] = df['plus12m'] + MonthEnd(0)
 
 # df = sqldf("""select a.*, b.date

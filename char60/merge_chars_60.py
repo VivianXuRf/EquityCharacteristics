@@ -64,6 +64,7 @@ sue = sue.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, sue, how='left', on=['permno', 'jdate'])
 
+'''
 with open('myre.feather', 'rb') as f:
     re = feather.read_feather(f)
 
@@ -73,6 +74,7 @@ re = re[['permno', 'jdate', 're']]
 re = re.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, re, how='left', on=['permno', 'jdate'])
+'''
 
 with open('abr.feather', 'rb') as f:
     abr = feather.read_feather(f)
@@ -84,6 +86,7 @@ abr = abr.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, abr, how='left', on=['permno', 'jdate'])
 
+'''
 with open('baspread.feather', 'rb') as f:
     baspread = feather.read_feather(f)
 
@@ -93,6 +96,7 @@ baspread = baspread[['permno', 'jdate', 'baspread']]
 baspread = baspread.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, baspread, how='left', on=['permno', 'jdate'])
+'''
 
 with open('maxret.feather', 'rb') as f:
     maxret = feather.read_feather(f)
@@ -124,6 +128,7 @@ ill = ill.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, ill, how='left', on=['permno', 'jdate'])
 
+'''
 with open('std_turn.feather', 'rb') as f:
     std_turn = feather.read_feather(f)
 
@@ -133,7 +138,9 @@ std_turn = std_turn[['permno', 'jdate', 'std_turn']]
 std_turn = std_turn.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, std_turn, how='left', on=['permno', 'jdate'])
+'''
 
+'''
 with open('zerotrade.feather', 'rb') as f:
     zerotrade = feather.read_feather(f)
 
@@ -143,6 +150,7 @@ zerotrade = zerotrade[['permno', 'jdate', 'zerotrade']]
 zerotrade = zerotrade.drop_duplicates(['permno', 'jdate'])
 
 chars_a = pd.merge(chars_a, zerotrade, how='left', on=['permno', 'jdate'])
+'''
 
 # save data
 with open('chars_a_raw.feather', 'wb') as f:
@@ -210,6 +218,7 @@ sue = sue.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, sue, how='left', on=['permno', 'jdate'])
 
+'''
 with open('myre.feather', 'rb') as f:
     re = feather.read_feather(f)
 
@@ -219,6 +228,7 @@ re = re[['permno', 'jdate', 're']]
 re = re.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, re, how='left', on=['permno', 'jdate'])
+'''
 
 with open('abr.feather', 'rb') as f:
     abr = feather.read_feather(f)
@@ -230,6 +240,7 @@ abr = abr.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, abr, how='left', on=['permno', 'jdate'])
 
+'''
 with open('baspread.feather', 'rb') as f:
     baspread = feather.read_feather(f)
 
@@ -239,6 +250,7 @@ baspread = baspread[['permno', 'jdate', 'baspread']]
 baspread = baspread.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, baspread, how='left', on=['permno', 'jdate'])
+'''
 
 with open('maxret.feather', 'rb') as f:
     maxret = feather.read_feather(f)
@@ -270,6 +282,7 @@ ill = ill.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, ill, how='left', on=['permno', 'jdate'])
 
+'''
 with open('std_turn.feather', 'rb') as f:
     std_turn = feather.read_feather(f)
 
@@ -279,7 +292,9 @@ std_turn = std_turn[['permno', 'jdate', 'std_turn']]
 std_turn = std_turn.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, std_turn, how='left', on=['permno', 'jdate'])
+'''
 
+'''
 with open('zerotrade.feather', 'rb') as f:
     zerotrade = feather.read_feather(f)
 
@@ -289,6 +304,7 @@ zerotrade = zerotrade[['permno', 'jdate', 'zerotrade']]
 zerotrade = zerotrade.drop_duplicates(['permno', 'jdate'])
 
 chars_q = pd.merge(chars_q, zerotrade, how='left', on=['permno', 'jdate'])
+'''
 
 # save data
 with open('chars_q_raw.feather', 'wb') as f:

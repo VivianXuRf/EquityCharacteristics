@@ -1,5 +1,6 @@
 # Calculate HSZ Replicating Anomalies
 # RE: Revisions in analysts’ earnings forecasts
+# need to run iclink.py first to get the iclink.feather file (no access currently)
 
 import pandas as pd
 import numpy as np
@@ -14,7 +15,8 @@ import pyarrow.feather as feather
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
 
 #########################################################################
 # Merging IBES and CRSP by using ICLINK table. Merging last month price #

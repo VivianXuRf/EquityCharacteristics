@@ -83,8 +83,13 @@ comp = conn.raw_sql("""
                     and f.datafmt = 'STD'
                     and f.popsrc = 'D'
                     and f.consol = 'C'
-                    and f.datadate >= '01/01/1959'
+                    and f.datadate >= '01/01/1981'
                     """)
+
+# convert number columns to float
+num_cols = comp.select_dtypes(include=['number']).columns
+comp[num_cols] = comp[num_cols].astype(float)
+
 
 # convert datadate to date fmt
 comp['datadate'] = pd.to_datetime(comp['datadate'])
@@ -93,7 +98,7 @@ comp['datadate'] = pd.to_datetime(comp['datadate'])
 comp = comp.sort_values(by=['gvkey', 'datadate']).drop_duplicates()
 
 # clean up csho
-comp['csho'] = np.where(comp['csho'] == 0, np.nan, comp['csho'])
+comp['csho'] = comp['csho'].astype(float).replace(0, np.nan)
 
 # calculate Compustat market equity
 comp['mve_f'] = comp['csho'] * comp['prcc_f']
@@ -107,8 +112,17 @@ choicelist = [comp['drc']+comp['drlt'],
               comp['drlt']]
 comp['dr'] = np.select(condlist, choicelist, default=np.nan)
 
-condlist = [comp['dcvt'].isnull() & comp['dcpstk'].notna() & comp['pstk'].notna() & comp['dcpstk'] > comp['pstk'],
-            comp['dcvt'].isnull() & comp['dcpstk'].notna() & comp['pstk'].isnull()]
+condlist = [
+    (comp['dcvt'].isna())
+    & (comp['dcpstk'].notna())
+    & (comp['pstk'].notna())
+    & (comp['dcpstk'] > comp['pstk']),
+
+    (comp['dcvt'].isna())
+    & (comp['dcpstk'].notna())
+    & (comp['pstk'].isna())
+]
+
 choicelist = [comp['dcpstk']-comp['pstk'],
               comp['dcpstk']]
 comp['dc'] = np.select(condlist, choicelist, default=np.nan)
@@ -117,8 +131,10 @@ comp['dc'] = np.where(comp['dc'].isnull(), comp['dcvt'], comp['dc'])
 comp['xint0'] = np.where(comp['xint'].isnull(), 0, comp['xint'])
 comp['xsga0'] = np.where(comp['xsga'].isnull, 0, 0)
 
-comp['ceq'] = np.where(comp['ceq'] == 0, np.nan, comp['ceq'])
-comp['at'] = np.where(comp['at'] == 0, np.nan, comp['at'])
+
+
+comp['ceq'] = comp['ceq'].astype(float).replace(0, np.nan)
+comp['at'] = comp['at'].astype(float).replace(0, np.nan)
 comp = comp.dropna(subset=['at'])
 
 #######################################################################################################################
@@ -135,9 +151,14 @@ crsp = conn.raw_sql("""
                       on a.permno=b.permno
                       and b.namedt<=a.date
                       and a.date<=b.nameendt
-                      where a.date >= '01/01/1959'
+                      where a.date >= '01/01/1981'
                       and b.exchcd between 1 and 3
                       """)
+
+# convert number columns to float
+num_cols = crsp.select_dtypes(include=['number']).columns
+crsp[num_cols] = crsp[num_cols].astype(float)
+
 
 # change variable format to int
 crsp[['permco', 'permno', 'shrcd', 'exchcd']] = crsp[['permco', 'permno', 'shrcd', 'exchcd']].astype(int)
@@ -189,6 +210,11 @@ ccm = conn.raw_sql("""
                   and (linkprim ='C' or linkprim='P')
                   """)
 
+# convert number columns to float
+num_cols = ccm.select_dtypes(include=['number']).columns
+ccm[num_cols] = ccm[num_cols].astype(float)
+
+
 ccm['linkdt'] = pd.to_datetime(ccm['linkdt'])
 ccm['linkenddt'] = pd.to_datetime(ccm['linkenddt'])
 
@@ -209,6 +235,8 @@ ccm2 = ccm1[(ccm1['jdate'] >= ccm1['linkdt']) & (ccm1['jdate'] <= ccm1['linkendd
 # link comp and crsp
 crsp2 = crsp2.rename(columns={'monthend': 'jdate'})
 data_rawa = pd.merge(crsp2, ccm2, how='inner', on=['permno', 'jdate'])
+num_cols = data_rawa.select_dtypes(include=['number']).columns
+data_rawa[num_cols] = data_rawa[num_cols].astype(float)
 
 # filter exchcd & shrcd
 data_rawa = data_rawa[((data_rawa['exchcd'] == 1) | (data_rawa['exchcd'] == 2) | (data_rawa['exchcd'] == 3)) &
@@ -222,7 +250,7 @@ data_rawa['me'] = data_rawa['me']/1000  # CRSP ME
 # data_rawa['me'] = data_rawa['mve_f']  # Compustat ME
 
 # there are some ME equal to zero since this company do not have price or shares data, we drop these observations
-data_rawa['me'] = np.where(data_rawa['me'] == 0, np.nan, data_rawa['me'])
+data_rawa['me'] = data_rawa['me'].astype(float).replace(0, np.nan)
 data_rawa = data_rawa.dropna(subset=['me'])
 
 # count single stock years
@@ -248,6 +276,7 @@ data_rawa['txditc'] = data_rawa['txditc'].fillna(0)
 
 # book equity
 data_rawa['be'] = data_rawa['seq'] + data_rawa['txditc'] - data_rawa['ps']
+data_rawa['be'] = data_rawa['be'].astype(float)
 data_rawa['be'] = np.where(data_rawa['be'] > 0, data_rawa['be'], np.nan)
 
 # acc
@@ -283,10 +312,10 @@ data_rawa['agr'] = (data_rawa['at']-data_rawa['at_l1'])/data_rawa['at_l1']
 # ni
 data_rawa['csho_l1'] = data_rawa.groupby(['permno'])['csho'].shift(1)
 data_rawa['ajex_l1'] = data_rawa.groupby(['permno'])['ajex'].shift(1)
-data_rawa['ni'] = np.where(data_rawa['gvkey'] != data_rawa['gvkey'].shift(1),
-                           np.nan,
-                           np.log(data_rawa['csho']*data_rawa['ajex']).replace(-np.inf, 0)-
-                           np.log(data_rawa['csho_l1']*data_rawa['ajex_l1']).replace(-np.inf, 0))
+
+temp = np.log(data_rawa['csho'] * data_rawa['ajex'])
+temp = temp.replace([np.inf, -np.inf], np.nan)
+data_rawa['ni'] = temp.groupby(data_rawa['gvkey']).diff()
 
 # op
 data_rawa['cogs0'] = np.where(data_rawa['cogs'].isnull(), 0, data_rawa['cogs'])
@@ -611,17 +640,21 @@ comp = conn.raw_sql("""
                     and f.datafmt = 'STD'
                     and f.popsrc = 'D'
                     and f.consol = 'C'
-                    and f.datadate >= '01/01/1959'
+                    and f.datadate >= '01/01/1981'
                     """)
+
+# convert number columns to float
+num_cols = comp.select_dtypes(include=['number']).columns
+comp[num_cols] = comp[num_cols].astype(float)
 
 # comp['cusip6'] = comp['cusip'].str.strip().str[0:6]
 comp = comp.dropna(subset=['ibq'])
 
 # sort and clean up
 comp = comp.sort_values(by=['gvkey', 'datadate']).drop_duplicates()
-comp['cshoq'] = np.where(comp['cshoq'] == 0, np.nan, comp['cshoq'])
-comp['ceqq'] = np.where(comp['ceqq'] == 0, np.nan, comp['ceqq'])
-comp['atq'] = np.where(comp['atq'] == 0, np.nan, comp['atq'])
+comp['cshoq'] = comp['cshoq'].astype(float).replace(0, np.nan)
+comp['ceqq'] = comp['ceqq'].astype(float).replace(0, np.nan)
+comp['atq'] = comp['atq'].astype(float).replace(0, np.nan)
 comp = comp.dropna(subset=['atq'])
 
 # convert datadate to date fmt
@@ -647,6 +680,7 @@ ccm1 = ccm1.rename(columns={'ibq': 'ibq_old'})  # original ibq
 if the announcement date is same or in front of jdate, we can use the up-to-date ibq.
 otherwise, we consider the up-to-date ibq is not available and still use the lag-4-months ibq
 '''
+ccm1['ibq_diff'] = ccm1['ibq_diff'].astype(float)
 ccm1['ibq'] = np.where(ccm1['ibq_diff'] >= 0, ccm1['ibq_new'], ccm1['ibq_old'])
 ccm1['ibq'] = np.where(ccm1['ibq'].isnull(), ccm1['ibq_old'], ccm1['ibq'])  # for most recent record we can only use the lag-4-months ibq
 
@@ -669,7 +703,7 @@ data_rawq['me'] = data_rawq['me']/1000  # CRSP ME
 # data_rawq['me'] = data_rawq['mveq_f']  # Compustat ME
 
 # there are some ME equal to zero since this company do not have price or shares data, we drop these observations
-data_rawq['me'] = np.where(data_rawq['me'] == 0, np.nan, data_rawq['me'])
+data_rawq['me'] = data_rawq['me'].astype(float).replace(0, np.nan)
 data_rawq = data_rawq.dropna(subset=['me'])
 
 # count single stock years
@@ -687,7 +721,9 @@ data_rawq = data_rawq.sort_values(by=['permno', 'jdate'])
 #                                                   Quarterly Variables                                               #
 #######################################################################################################################
 # prepare be
+data_rawq['seqq'] = data_rawq['seqq'].astype(float)
 data_rawq['beq'] = np.where(data_rawq['seqq']>0, data_rawq['seqq']+data_rawq['txditcq']-data_rawq['pstkq'], np.nan)
+data_rawq['beq'] = data_rawq['beq'].astype(float)
 data_rawq['beq'] = np.where(data_rawq['beq']<=0, np.nan, data_rawq['beq'])
 
 # dy
@@ -894,6 +930,7 @@ data_rawq['cheq_l1'] = data_rawq.groupby(['permno'])['cheq'].shift(1)
 data_rawq['lctq_l1'] = data_rawq.groupby(['permno'])['lctq'].shift(1)
 data_rawq['dlcq_l1'] = data_rawq.groupby(['permno'])['dlcq'].shift(1)
 
+data_rawq['saleq'] = data_rawq['saleq'].astype(float)
 data_rawq['sacc'] = ((data_rawq['actq']-data_rawq['actq_l1'] - (data_rawq['cheq']-data_rawq['cheq_l1']))
                      -((data_rawq['lctq']-data_rawq['lctq_l1'])-(data_rawq['dlcq']-data_rawq['dlcq_l1'])))/data_rawq['saleq']
 data_rawq['sacc'] = np.where(data_rawq['saleq']<=0, ((data_rawq['actq']-data_rawq['actq_l1'] - (data_rawq['cheq']-data_rawq['cheq_l1']))
@@ -1016,8 +1053,13 @@ data_rawq = data_rawq.drop(['p_temp1', 'p_temp2', 'p_temp3', 'p_temp4', 'p_temp5
 crsp_mom = conn.raw_sql("""
                         select permno, date, ret, retx, prc, shrout, vol
                         from crsp.msf
-                        where date >= '01/01/1959'
+                        where date >= '01/01/1981'
                         """)
+
+# convert number columns to float
+num_cols = crsp_mom .select_dtypes(include=['number']).columns
+crsp_mom [num_cols] = crsp_mom [num_cols].astype(float)
+
 
 crsp_mom['permno'] = crsp_mom['permno'].astype(int)
 crsp_mom['jdate'] = pd.to_datetime(crsp_mom['date']) + MonthEnd(0)

@@ -6,6 +6,7 @@
 # You can use the following code to check your CPU situation
 # import multiprocessing
 # multiprocessing.cpu_count()
+# use the same crsp data as ill.py
 
 import pandas as pd
 import numpy as np
@@ -21,14 +22,19 @@ import multiprocessing as mp
 ###################
 # Connect to WRDS #
 ###################
+'''
 conn = wrds.Connection()
 
 # CRSP Block
 crsp = conn.raw_sql("""
                     select a.permno, a.date, a.ret
                     from crsp.dsf as a
-                    where a.date > '01/01/1959'
+                    where a.date > '01/01/1981'
                     """)
+'''
+
+# load data
+crsp = pd.read_feather("crsp_ill_raw.feather")
 
 # sort variables by permno and date
 crsp = crsp.sort_values(by=['permno', 'date'])
@@ -150,10 +156,10 @@ def main(start, end, step):
 if __name__ == '__main__':
     crsp = main(0, 1, 0.05)
 
-# process dataframe
-crsp = crsp.dropna(subset=['maxret'])  # drop NA due to rolling
-crsp = crsp.reset_index(drop=True)
-crsp = crsp[['permno', 'date', 'maxret']]
+    # process dataframe
+    crsp = crsp.dropna(subset=['maxret'])  # drop NA due to rolling
+    crsp = crsp.reset_index(drop=True)
+    crsp = crsp[['permno', 'date', 'maxret']]
 
-with open('maxret.feather', 'wb') as f:
-    feather.write_feather(crsp, f)
+    with open('maxret.feather', 'wb') as f:
+        feather.write_feather(crsp, f)

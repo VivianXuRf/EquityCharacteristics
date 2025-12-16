@@ -14,15 +14,38 @@ import multiprocessing as mp
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
+
 
 # CRSP Block
 crsp = conn.raw_sql("""
                     select permno, date, ret
                     from crsp.dsf
-                    where date >= '01/01/1959'
+                    where date >= '01/01/1981'
                     """)
+print("CRSP data loaded. Rows:", len(crsp))
+# Save locally in a fast, compressed format
+crsp.to_feather("crsp_rvar_mean_raw.feather")      # or:
+    
+'''
+# add delisting return
+dlret = conn.raw_sql("""
+                     select permno, dlret, dlstdt 
+                     from crsp.dsedelist
+                     """)
+                     
+print("CRSP.dlret data loaded. Rows:", len(dlret))
+'''
+conn.close()
 
+
+################################################
+# load data
+crsp = pd.read_feather("crsp_rvar_mean_raw.feather")
+dlret = pd.read_feather("crsp_dlret_beta_raw.feather")
+
+# clean the raw data
 # sort variables by permno and date
 crsp = crsp.sort_values(by=['permno', 'date'])
 
@@ -32,11 +55,6 @@ crsp['permno'] = crsp['permno'].astype(int)
 # Line up date to be end of month
 crsp['date'] = pd.to_datetime(crsp['date'])
 
-# add delisting return
-dlret = conn.raw_sql("""
-                     select permno, dlret, dlstdt 
-                     from crsp.dsedelist
-                     """)
 
 dlret.permno = dlret.permno.astype(int)
 dlret['dlstdt'] = pd.to_datetime(dlret['dlstdt'])
@@ -158,11 +176,11 @@ def main(start, end, step):
 if __name__ == '__main__':
     crsp = main(0, 1, 0.05)
 
-# process dataframe
-crsp = crsp.dropna(subset=['rvar'])  # drop NA due to rolling
-crsp = crsp.rename(columns={'rvar': 'rvar_mean'})
-crsp = crsp.reset_index(drop=True)
-crsp = crsp[['permno', 'date', 'rvar_mean']]
+    # process dataframe
+    crsp = crsp.dropna(subset=['rvar'])  # drop NA due to rolling
+    crsp = crsp.rename(columns={'rvar': 'rvar_mean'})
+    crsp = crsp.reset_index(drop=True)
+    crsp = crsp[['permno', 'date', 'rvar_mean']]
 
-with open('rvar_mean.feather', 'wb') as f:
-    feather.write_feather(crsp, f)
+    with open('rvar_mean.feather', 'wb') as f:
+        feather.write_feather(crsp, f)

@@ -4,8 +4,6 @@
 # Then using different process to calculate the variance
 # We use 20 process to calculate variance, you can change the number of process according to your CPU situation
 # You can use the following code to check your CPU situation
-# import multiprocessing
-# multiprocessing.cpu_count()
 
 import pandas as pd
 import numpy as np
@@ -21,7 +19,9 @@ import multiprocessing as mp
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+'''
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
 
 # CRSP Block
 crsp = conn.raw_sql("""
@@ -29,9 +29,32 @@ crsp = conn.raw_sql("""
                       from crsp.dsf as a
                       left join ff.factors_daily as b
                       on a.date=b.date
-                      where a.date > '01/01/1959'
+                      where a.date > '01/01/1981'
                       """)
 
+print("CRSP data loaded. Rows:", len(crsp))
+# Save locally in a fast, compressed format
+crsp.to_feather("crsp_beta_raw.feather")      # or:
+    
+
+# add delisting return
+dlret = conn.raw_sql("""
+                     select permno, dlret, dlstdt 
+                     from crsp.dsedelist
+                     """)
+print("CRSP.dlret data loaded. Rows:", len(dlret))
+# Save locally in a fast, compressed format
+dlret.to_feather("crsp_dlret_beta_raw.feather")     
+
+conn.close()
+'''
+
+###############################################################
+# load data 
+crsp = pd.read_feather("crsp_beta_raw.feather")
+dlret = pd.read_feather("crsp_dlret_beta_raw.feather")
+
+# clean the raw data
 # sort variables by permno and date
 crsp = crsp.sort_values(by=['permno', 'date'])
 
@@ -41,11 +64,7 @@ crsp['permno'] = crsp['permno'].astype(int)
 # Line up date to be end of month
 crsp['date'] = pd.to_datetime(crsp['date'])
 
-# add delisting return
-dlret = conn.raw_sql("""
-                     select permno, dlret, dlstdt 
-                     from crsp.dsedelist
-                     """)
+
 
 dlret.permno = dlret.permno.astype(int)
 dlret['dlstdt'] = pd.to_datetime(dlret['dlstdt'])
@@ -112,9 +131,9 @@ def get_beta(df, firm_list):
             else:
                 rolling_window = temp['permno'].count()
                 index = temp.tail(1).index
-                X = np.mat(temp[['mktrf']])
-                Y = np.mat(temp[['exret']])
-                ones = np.mat(np.ones(rolling_window)).T
+                X = np.asmatrix(temp[['mktrf']])
+                Y = np.asmatrix(temp[['exret']])
+                ones = np.asmatrix(np.ones(rolling_window)).T
                 M = np.identity(rolling_window) - ones.dot((ones.T.dot(ones)).I).dot(ones.T)
                 beta = (X.T.dot(M).dot(X)).I.dot((X.T.dot(M).dot(Y)))
                 df.loc[index, 'beta'] = beta
@@ -172,11 +191,12 @@ def main(start, end, step):
 # dataframes here, so the function will use 20 cores to calculate variance of residual.
 if __name__ == '__main__':
     crsp = main(0, 1, 0.05)
+    print("Beta calculation finished. Rows:", len(crsp))
+    # process dataframe
+    crsp = crsp.dropna(subset=['beta'])  # drop NA due to rolling
+    crsp = crsp.reset_index(drop=True)
+    crsp = crsp[['permno', 'date', 'beta']]
 
-# process dataframe
-crsp = crsp.dropna(subset=['beta'])  # drop NA due to rolling
-crsp = crsp.reset_index(drop=True)
-crsp = crsp[['permno', 'date', 'beta']]
-
-with open('beta.feather', 'wb') as f:
-    feather.write_feather(crsp, f)
+    with open('beta.feather', 'wb') as f:
+        feather.write_feather(crsp, f)
+    print("Beta data saved to beta.feather")

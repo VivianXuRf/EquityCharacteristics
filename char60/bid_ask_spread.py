@@ -21,7 +21,8 @@ import multiprocessing as mp
 ###################
 # Connect to WRDS #
 ###################
-conn = wrds.Connection()
+conn = wrds.Connection(wrds_username='ruofanxu')
+print("Connected. Pulling CRSP data...")
 
 # CRSP Block
 crsp = conn.raw_sql("""
@@ -29,8 +30,18 @@ crsp = conn.raw_sql("""
                     from crsp.dsf as a
                     left join ff.factors_daily as b
                     on a.date=b.date
-                    where a.date > '01/01/1959'
+                    where a.date > '01/01/1981'
                     """)
+print("CRSP data loaded. Rows:", len(crsp))
+# Save locally in a fast, compressed format
+crsp.to_feather("crsp_baspread_raw.feather")      
+
+conn.close()
+
+'''
+# load data
+crsp = pd.read_feather("crsp_baspread_raw.feather")
+'''
 
 # sort variables by permno and date
 crsp = crsp.sort_values(by=['permno', 'date'])
@@ -152,10 +163,10 @@ def main(start, end, step):
 if __name__ == '__main__':
     crsp = main(0, 1, 0.05)
 
-# process dataframe
-crsp = crsp.dropna(subset=['baspread'])  # drop NA due to rolling
-crsp = crsp.reset_index(drop=True)
-crsp = crsp[['permno', 'date', 'baspread']]
+    # process dataframe
+    crsp = crsp.dropna(subset=['baspread'])  # drop NA due to rolling
+    crsp = crsp.reset_index(drop=True)  
+    crsp = crsp[['permno', 'date', 'baspread']]
 
-with open('baspread.feather', 'wb') as f:
-    feather.write_feather(crsp, f)
+    with open('baspread.feather', 'wb') as f:
+        feather.write_feather(crsp, f)
