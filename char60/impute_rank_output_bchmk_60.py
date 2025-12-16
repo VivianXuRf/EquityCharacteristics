@@ -150,29 +150,29 @@ with open('chars60_rank_imputed.feather', 'wb') as f:
 
 
 # standardize raw data to mean 0 and std 1
-df_rank = df.copy()
-df_rank['lag_me'] = df_rank['me']
-df_rank['bm'] = np.where(df_rank['bm']<0,np.nan,df_rank['bm']) # if bm<0 then bm=nan and rank_bm=0
-df_rank = standardize(df_rank)
-df_rank['year'] = df_rank['date'].dt.year
-df_rank = df_rank[df_rank['year'] >= 1972]
-df_rank = df_rank.drop(['year'], axis=1)
-df_rank['log_me'] = np.log(df_rank['lag_me'])
+df_Z = df.copy()
+df_Z['lag_me'] = df_Z['me']
+df_Z['bm'] = np.where(df_Z['bm']<0,np.nan,df_Z['bm']) # if bm<0 then bm=nan and rank_bm=0
+df_Z = standardize_Z(df_Z)
+df_Z['year'] = df_Z['date'].dt.year
+df_Z = df_Z[df_Z['year'] >= 1972]
+df_Z = df_Z.drop(['year'], axis=1)
+df_Z['log_me'] = np.log(df_Z['lag_me'])
 
 with open('chars60_Zstd_no_impute.feather', 'wb') as f:
-    feather.write_feather(df_rank, f)
+    feather.write_feather(df_Z, f)
 
 # standardize imputed data to mean 0 and std 1
-df_rank = df_impute.copy()
-df_rank['lag_me'] = df_rank['me']
-df_rank = standardize(df_rank)
-df_rank['year'] = df_rank['date'].dt.year
-df_rank = df_rank[df_rank['year'] >= 1972]
-df_rank = df_rank.drop(['year'], axis=1)
-df_rank['log_me'] = np.log(df_rank['lag_me'])
+df_Z = df_impute.copy()
+df_Z['lag_me'] = df_Z['me']
+df_Z = standardize_Z(df_Z)
+df_Z['year'] = df_Z['date'].dt.year
+df_Z = df_Z[df_rank['year'] >= 1972]
+df_Z = df_Z.drop(['year'], axis=1)
+df_Z['log_me'] = np.log(df_Z['lag_me'])
 
 with open('chars60_Zstd_imputed.feather', 'wb') as f:
-    feather.write_feather(df_rank, f)
+    feather.write_feather(df_Z, f)
 
 
 
